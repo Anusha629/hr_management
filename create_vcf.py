@@ -9,21 +9,18 @@ class HRException(Exception): pass
 logger = False 
 
 
-def create_vcard(file, address):
-    last_name, first_name, title, email, phone = file
-    content = f"""BEGIN:VCARD
-    VERSION:2.1
-    N:{last_name};{first_name}
-    FN:{first_name} {last_name}
-    ORG:Authors, Inc.
-    TITLE:{title}
-    TEL;WORK;VOICE:{phone}
-    ADR;WORK:;;{address}
-    EMAIL;PREF;INTERNET:{email}
-    REV:20150922T195243Z
-    END:VCARD
-    """
-    return content
+def create_vcard(lname, fname, designation, email, phone):
+    return f"""BEGIN:VCARD
+VERSION:2.1
+N:{lname};{fname}
+FN:{fname} {lname}
+ORG:Authors, Inc.
+TITLE:{designation}
+TEL;WORK;VOICE:{phone}
+ADR;WORK:;;100 Flat Grape Dr.;Fresno;CA;95555;United States of America
+EMAIL;PREF;INTERNET:{email}
+REV:20150922T195243Z
+END:VCARD"""
 
 
 def init_logger(is_verbose):
@@ -43,20 +40,21 @@ def init_logger(is_verbose):
 def parse_args():
     parser = argparse.ArgumentParser(
         prog="create_vcf.py", description="Generate employee database")
+    parser.add_argument("--dbname", help="Adding database name", action="store", type=str, default='Employees_db')
+    parser.add_argument("--dbuser", help="Adding user name of database", action="store", type=str, default='anusha')
     
     # Subcommand initdb
     subparsers = parser.add_subparsers(dest="op")
     parser_initdb = subparsers.add_parser("initdb", help="Initialize creation of database and table")
-
-    parser_initdb.add_argument("--dbname", help="Adding database name", action="store", type=str, default='Employees_db')
-    parser_initdb.add_argument("--dbuser", help="Adding user name of database", action="store", type=str, default='anusha')
+    
 
     # import csv
     import_parser = subparsers.add_parser("import", help="Import data from csv file")
-    import_parser.add_argument("--dbname", help="Name of database to use", action="store", type=str, default="Employees_db")
-    import_parser.add_argument("--dbuser", help="Name of user to use", action="store", type=str, default="anusha")
     import_parser.add_argument("employees_file", help="List of employees to import")
 
+    query_parser = subparsers.add_parser("query", help="Get information for a single employee")
+    query_parser.add_argument("--vcard", action="store_true", default=False, help="Generate vcard for employee")
+    query_parser.add_argument("id", help="employee id")
 
     parser.add_argument("-n", "--number", help="Number of records to generate", action="store", type=int, default=10)
     parser.add_argument("-v", "--verbose", help="Print detailed logging", action="store_true", default=False)
@@ -90,6 +88,7 @@ def truncate_table(args):
     conn.close()
 
 
+
 def import_data_to_db(args):
     truncate_table(args)
     con = psycopg2.connect(dbname=args.dbname)
@@ -106,13 +105,31 @@ def import_data_to_db(args):
         con.close()
 
 
+def handle_query(args):
+    con = psycopg2.connect(dbname=args.dbname)
+    cur = con.cursor()
+    query = f"SELECT last_name, first_name, designation, email, phone from employees where employee_id = {args.id}"
+    cur.execute(query)
+    first_name, last_name, designation, email, phone = cur.fetchone()
+
+    print (f"""Name        : {first_name} {last_name}
+Designation : {designation}
+Email       : {email}
+Phone       : {phone}""")
+    if (args.vcard):
+        vcard = create_vcard(last_name, first_name, designation, email, phone)
+        print (f"\n{vcard}")
+    con.close()
+
+
+
 def main():
     try:
         args = parse_args()
         init_logger(args.verbose)
         ops = {"initdb" : initialize_db,
-               "import" : import_data_to_db
-               }        
+               "import" : import_data_to_db,
+               "query" : handle_query}
         ops[args.op](args)
     except HRException as e:
         logger.error("Program aborted, %s", e)
