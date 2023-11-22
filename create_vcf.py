@@ -2,6 +2,7 @@ import argparse
 import logging
 import psycopg2
 import sys
+import csv
 
 class HRException(Exception): pass
 
@@ -41,15 +42,20 @@ def init_logger(is_verbose):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        prog="sir.py", description="Generate employee database"
-    )
-
+        prog="create_vcf.py", description="Generate employee database")
+    
     # Subcommand initdb
     subparsers = parser.add_subparsers(dest="op")
     parser_initdb = subparsers.add_parser("initdb", help="Initialize creation of database and table")
 
-    parser_initdb.add_argument("--dbname", help="Adding user name of database", action="store", type=str, default='emp_db')
-    parser_initdb.add_argument("--userdb", help="Adding database name", action="store", type=str, default='anusha')
+    parser_initdb.add_argument("--dbname", help="Adding database name", action="store", type=str, default='Employees_db')
+    parser_initdb.add_argument("--dbuser", help="Adding user name of database", action="store", type=str, default='anusha')
+
+    # import csv
+    import_parser = subparsers.add_parser("import", help="Import data from csv file")
+    import_parser.add_argument("--dbname", help="Name of database to use", action="store", type=str, default="Employees_db")
+    import_parser.add_argument("--dbuser", help="Name of user to use", action="store", type=str, default="anusha")
+    import_parser.add_argument("employees_file", help="List of employees to import")
 
 
     parser.add_argument("-n", "--number", help="Number of records to generate", action="store", type=int, default=10)
@@ -61,6 +67,7 @@ def parse_args():
     args = parser.parse_args()
     return args 
 
+
 def initialize_db(args):
     with open("data/init.sql") as f:
         sql=f.read()
@@ -70,20 +77,48 @@ def initialize_db(args):
         cur=con.cursor()
         cur.execute(sql)
         con.commit()
+        logger.info("Initialize Database Successfully")
     except psycopg2.OperationalError as e:
         raise HRException(f"Database '{args.dbname}' doesn't exist")
+    
+def truncate_table(args):
+    conn = psycopg2.connect(dbname=args.dbname, user=args.dbuser)
+    cursor = conn.cursor()
+    truncate_table_query = "TRUNCATE TABLE employees RESTART IDENTITY CASCADE"
+    cursor.execute(truncate_table_query)
+    conn.commit()
+    conn.close()
+
+
+def import_data_to_db(args):
+    truncate_table(args)
+    con = psycopg2.connect(dbname=args.dbname)
+    cur = con.cursor()
+    with open(args.employees_file) as f:
+        reader = csv.reader(f)
+        for lname, fname, designation, email, phone in reader:
+            logger.debug("Inserting %s", email)
+            query = "INSERT INTO employees(last_name, first_name, designation, email, phone) VALUES (%s, %s, %s, %s, %s)"
+            cur.execute(query, (lname, fname, designation, email, phone))
+        con.commit()
+        print("Successfully inserted")
+        cur.close()
+        con.close()
 
 
 def main():
     try:
         args = parse_args()
         init_logger(args.verbose)
-        ops = {"initdb" : initialize_db
+        ops = {"initdb" : initialize_db,
+               "import" : import_data_to_db
                }        
         ops[args.op](args)
     except HRException as e:
         logger.error("Program aborted, %s", e)
         sys.exit(-1)
+
+
 if __name__=="__main__":
     main()
 
