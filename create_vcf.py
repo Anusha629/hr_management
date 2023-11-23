@@ -47,14 +47,31 @@ def parse_args():
     subparsers = parser.add_subparsers(dest="op")
     parser_initdb = subparsers.add_parser("initdb", help="Initialize creation of database and table")
     
-
     # import csv
     import_parser = subparsers.add_parser("import", help="Import data from csv file")
     import_parser.add_argument("employees_file", help="List of employees to import")
 
+    #fetch vcard
     query_parser = subparsers.add_parser("query", help="Get information for a single employee")
     query_parser.add_argument("--vcard", action="store_true", default=False, help="Generate vcard for employee")
     query_parser.add_argument("id", help="employee id")
+
+    # add leave
+    parser_leave = subparsers.add_parser("leave", help="Add leave to database")
+    parser_leave.add_argument("date", type=str, help="Date of leave")
+    parser_leave.add_argument("employee_id", type=int, help="Employee id")
+    parser_leave.add_argument("reason", type=str, help="Reason of leave")
+
+
+    #leave_summary
+    parser_summary = subparsers.add_parser("summary", help="Leave summary")
+    parser_summary.add_argument("employee_id", type=int, help="Employee id")
+
+    #add designation
+    parser_designation = subparsers.add_parser("designation", help="Add designation to database")
+    parser_designation.add_argument("name", type=str, help="Name of designation")
+    parser_designation.add_argument("percentage", type=int, help="Employees in designation")
+    parser_designation.add_argument("leaves", type=str, help="Total number of leaves")
 
     parser.add_argument("-n", "--number", help="Number of records to generate", action="store", type=int, default=10)
     parser.add_argument("-v", "--verbose", help="Print detailed logging", action="store_true", default=False)
@@ -88,7 +105,6 @@ def truncate_table(args):
     conn.close()
 
 
-
 def import_data_to_db(args):
     truncate_table(args)
     con = psycopg2.connect(dbname=args.dbname)
@@ -97,7 +113,7 @@ def import_data_to_db(args):
         reader = csv.reader(f)
         for lname, fname, designation, email, phone in reader:
             logger.debug("Inserting %s", email)
-            query = "INSERT INTO employees(last_name, first_name, designation, email, phone) VALUES (%s, %s, %s, %s, %s)"
+            query = "INSERT INTO employees(last_name, first_name, email, phone, designation_id) VALUES (%s, %s, %s, %s, %s)"
             cur.execute(query, (lname, fname, designation, email, phone))
         con.commit()
         print("Successfully inserted")
@@ -108,9 +124,9 @@ def import_data_to_db(args):
 def handle_query(args):
     con = psycopg2.connect(dbname=args.dbname)
     cur = con.cursor()
-    query = f"SELECT last_name, first_name, designation, email, phone from employees where employee_id = {args.id}"
+    query = f"SELECT e.last_name, e.first_name, e.email, e.phone, d.designation_name from employees e INNER JOIN designation d ON e.designation_id = d.designation_id  where e.employee_id = {args.id}"
     cur.execute(query)
-    first_name, last_name, designation, email, phone = cur.fetchone()
+    first_name, last_name, email, phone, designation = cur.fetchone()
 
     print (f"""Name        : {first_name} {last_name}
 Designation : {designation}
@@ -122,6 +138,60 @@ Phone       : {phone}""")
     con.close()
 
 
+def add_leaves(args):
+    con=psycopg2.connect(dbname=args.dbname)
+    cur=con.cursor()
+    psql = "select id from leaves where employee = %s and date= %s"
+    cur.execute(psql, (args.employee_id, args.date))
+    exists = cur.fetchone()
+    if exists:
+        logger.error(f"Employee already taken leave on {args.date}")
+        exit()
+    try:
+        psql="insert into leaves(date,employee,reason) values(%s,%s,%s)"
+        cur.execute(psql,(args.date,args.employee_id,args.reason))
+        con.commit()
+        print("Leave details successfully inserted ")
+    except:
+        con.rollback()
+        print("Leave details not inserted ")
+    finally:
+        cur.close()
+        con.close()
+
+
+def get_leave_summary(args):
+    con = psycopg2.connect(dbname=args.dbname)
+    cur = con.cursor()
+    psql= """SELECT e.employee_id, e.first_name, e.last_name, d.designation_name, COUNT(l.id) AS leaves_taken, d.total_num_of_leaves - COUNT(l.id) AS leaves_remaining FROM 
+            employees e LEFT JOIN leaves l ON e.employee_id = l.employee JOIN designation d ON e.designation_id = d.designation_id WHERE  e.employee_id = %s 
+            GROUP BY e.employee_id, e.first_name, e.last_name, d.designation_name, d.total_num_of_leaves"""
+    cur.execute(psql, (args.employee_id,))
+    leaves = cur.fetchone()
+
+    if leaves:
+        employee_id, first_name, last_name, designation, leaves_taken, leaves_remaining = leaves
+        print(f'''Employee ID: {employee_id}
+        "Name: {first_name} {last_name}
+        "Designation : {designation}
+        "Leaves Taken: {leaves_taken}
+        "Leaves Remaining: {leaves_remaining}''')
+    con.close()
+
+def add_to_designation(args):
+    con=psycopg2.connect(dbname=args.dbname)
+    cur=con.cursor()
+    try:
+        psql="insert into designation(designation_name,percentage_of_employees,total_num_of_leaves) values(%s,%s,%s)"
+        cur.execute(psql,(args.name,args.percentage,args.leaves))
+        con.commit()
+        print("Designation details inserted ")
+    except:
+        con.rollback()
+        print("details not inserted ")
+    finally:
+        cur.close()
+        con.close()
 
 
 def main():
@@ -130,7 +200,10 @@ def main():
         init_logger(args.verbose)
         ops = {"initdb" : initialize_db,
                "import" : import_data_to_db,
-               "query" : handle_query}
+               "query" : handle_query,
+               "leave" : add_leaves,
+               "summary":get_leave_summary,
+               "designation":add_to_designation}
         ops[args.op](args)
     except HRException as e:
         logger.error("Program aborted, %s", e)
