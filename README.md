@@ -1,16 +1,11 @@
 # HR Management
 
-This Python script converts data from a CSV file into VCards (.vcf) format. Each row in the CSV file corresponds to an individual's contact information, and the script creates a VCard for each person.
+This Python script converts data from a database into VCards. Each row in database corresponds to an individual's contact information, and the script creates a VCard for each person.
 
     
-   CSV file named "names.csv" with the following columns: Last Name, First Name, Title, Email, and Phone
+   Data base contains with the following columns: Last Name, First Name, Designation, Email, and Phone
 
 ## Usage
-
-   Place the "names.csv" file in the same directory as the script.
-    
-   VCards will be generated and saved in a directory named "vcard"
-
 
 The generated VCards include the following information:
 
@@ -20,8 +15,19 @@ The generated VCards include the following information:
     Work Address
     Email Address
 
-Output Directory
 
-  If the "vcard" directory does not exist, the script will create it to store the generated VCards.
+Run:
+
+   python3 create_vcf.py initdb  (initialize database )
+
+   python3 create_vcf.py import names.csv (import a csv file )
+
+   python3 create_vcf.py query 11     (get a single details for an employee)
+
+   python3 create_vcf.py query 5 --vcard  (get a single vcard for an employee)
+
+
+
+
 
 
