@@ -4,19 +4,24 @@
 
 1. Objective:
 
-This script generates QR codes and vCard files from a CSV file containing contact information. Each vCard saved in a specified directory. 
+This script generates vCard files from a database containing contact information. Each vCard saved in .vcf format. 
 
 
 2. Input:
 
- csv file (employees list) added to database.  
+csv file (employees list) added to database.  
+
+python3 create_vcf.py initdb  - To initialize the database
+
+python3 create_vcf.py import names.csv - Lqad the csv
+
+python3 create_vcf.py query 11  - To get the vcard of an single employee.
 
    
 3. Output:
 
 
-Generate one vCard file and OR code per row in the csv_file. The filename
-will be the email address in the row.
+Generate one vCard file per row in the database.
 
  Sample vcard file -
 
@@ -33,17 +38,7 @@ will be the email address in the row.
     END:VCARD
 
 The vCard file will have name as file name.
-Get employees leave table and its count.
 
 
-4. Usage:
 
-The script can be executed from the command line using:
- 
-    python create_vcf.py -it db -o vcard -d emp_db -u anusha -t employees
-
-
-    -- use -qs for generate QR codes with suitable qr_size 
-      
-
-
+  
