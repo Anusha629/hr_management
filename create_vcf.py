@@ -4,6 +4,7 @@ import psycopg2
 import sys
 import csv
 import requests
+import os
 
 class HRException(Exception): pass
 
@@ -36,10 +37,14 @@ def parse_args():
     parser_leave.add_argument("employee_id", type=int, help="Employee id")
     parser_leave.add_argument("reason", type=str, help="Reason of leave")
 
-
     #leave_summary
     parser_summary = subparsers.add_parser("summary", help="Leave summary")
     parser_summary.add_argument("employee_id", type=int, help="Employee id")
+    parser_summary.add_argument("export",help="export to csv file")
+    
+    #csv_leave_summary
+    parser_export = subparsers.add_parser("export", help="Export leave summary")
+    parser_export.add_argument("directory", help="Directory to export leave summary")
 
     #add designation
     parser_designation = subparsers.add_parser("designation", help="Add designation to database")
@@ -69,24 +74,6 @@ def init_logger(is_verbose):
     handler.setFormatter(logging.Formatter("[%(levelname)s] | %(filename)s:%(lineno)d | %(message)s"))
     logger.setLevel(logging.DEBUG)
     logger.addHandler(handler)
-
-
-def create_vcard(lname, fname, designation, email, phone):
-    return f"""BEGIN:VCARD
-VERSION:2.1
-N:{lname};{fname}
-FN:{fname} {lname}
-ORG:Authors, Inc.
-TITLE:{designation}
-TEL;WORK;VOICE:{phone}
-ADR;WORK:;;100 Flat Grape Dr.;Fresno;CA;95555;United States of America
-EMAIL;PREF;INTERNET:{email}
-REV:20150922T195243Z
-END:VCARD"""
-
-def generate_qr_code_content(last_name,first_name,designation,email,phone,size):
-  qr_code = requests.get(f"https://chart.googleapis.com/chart?cht=qr&chs={size}x{size}&chl={last_name,first_name,designation,email,phone}")
-  return qr_code.content
 
 
 def initialize_db(args):
@@ -126,6 +113,23 @@ def import_data_to_db(args):
         cur.close()
         con.close()
 
+def create_vcard(lname, fname, designation, email, phone):
+    return f"""BEGIN:VCARD
+VERSION:2.1
+N:{lname};{fname}
+FN:{fname} {lname}
+ORG:Authors, Inc.
+TITLE:{designation}
+TEL;WORK;VOICE:{phone}
+ADR;WORK:;;100 Flat Grape Dr.;Fresno;CA;95555;United States of America
+EMAIL;PREF;INTERNET:{email}
+REV:20150922T195243Z
+END:VCARD"""
+
+def generate_qr_code_content(last_name,first_name,designation,email,phone,size):
+  qr_code = requests.get(f"https://chart.googleapis.com/chart?cht=qr&chs={size}x{size}&chl={last_name,first_name,designation,email,phone}")
+  return qr_code.content
+
 
 def handle_query(args):
     con = psycopg2.connect(dbname=args.dbname)
@@ -159,26 +163,26 @@ def add_leaves(args):
         cur.execute(leaves_remaining, (args.employee_id,))
         leaves_remaining = cur.fetchone()
 
-        if leaves_remaining and leaves_remaining[0] <= 0:
-            print("No leaves remaining. Cannot take more leaves.")
-        else:
-            leave_exists_query = "SELECT id FROM leaves WHERE employee = %s AND date = %s"
-            cur.execute(leave_exists_query, (args.employee_id, args.date))
-            exists = cur.fetchone()
-
-            if exists:
-                print(f"Employee already taken leave on {args.date}")
+        if leaves_remaining:
+            if leaves_remaining[0] <= 0:
+                print("No leaves remaining. Cannot take more leaves.")
             else:
-                insert_leave_query = "INSERT INTO leaves(date, employee, reason) VALUES (%s, %s, %s)"
-                cur.execute(insert_leave_query, (args.date, args.employee_id, args.reason))
-                con.commit()
-                print("Leave details successfully inserted")
+                leave_exists_query = "SELECT id FROM leaves WHERE employee = %s AND date = %s"
+                cur.execute(leave_exists_query, (args.employee_id, args.date))
+                exists = cur.fetchone()
+
+                if exists:
+                    print(f"Employee already taken leave on {args.date}")
+                else:
+                    insert_leave_query = "INSERT INTO leaves(date, employee, reason) VALUES (%s, %s, %s)"
+                    cur.execute(insert_leave_query, (args.date, args.employee_id, args.reason))
+                    con.commit()
+                    print("Leave details successfully inserted")
 
     except psycopg2.Error as e:
         con.rollback()
         print(f"Failed to add leave: {e}")
 
-    finally:
         cur.close()
         con.close()
 
@@ -199,6 +203,47 @@ def get_leave_summary(args):
         "Leaves Taken: {leaves_taken}
         "Leaves Remaining: {leaves_remaining}''')
     con.close()
+
+def export_leave_summary(args):
+    con = psycopg2.connect(dbname=args.dbname)
+    cur = con.cursor()
+    try:
+        query = """
+            SELECT e.employee_id, e.first_name, e.last_name, d.designation_name, 
+            COUNT(l.id) AS leaves_taken, d.total_num_of_leaves - COUNT(l.id) AS leaves_remaining 
+            FROM employees e 
+            LEFT JOIN leaves l ON e.employee_id = l.employee 
+            JOIN designation d ON e.designation_id = d.designation_id 
+            GROUP BY e.employee_id, e.first_name, e.last_name, d.designation_name, d.total_num_of_leaves"""
+        cur.execute(query)
+        rows = cur.fetchall()
+
+        directory = args.directory
+        os.makedirs(directory, exist_ok=True)
+
+        with open(os.path.join(directory, 'leave_summary.csv'), 'w', newline='') as csvfile:
+            fieldnames = ['Employee ID', 'First Name', 'Last Name', 'Designation', 'Leaves Taken', 'Leaves Remaining']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+
+            for item in rows:
+                employee_id, first_name, last_name, designation, leaves_taken, leaves_remaining = item
+                writer.writerow({
+                    'Employee ID': employee_id,
+                    'First Name': first_name,
+                    'Last Name': last_name,
+                    'Designation': designation,
+                    'Leaves Taken': leaves_taken,
+                    'Leaves Remaining': leaves_remaining})
+
+        print(f"Exported leave summary to {os.path.join(directory, 'leave_summary.csv')}")
+
+    except psycopg2.Error as e:
+        print(f"Failed to export data: {e}")
+        cur.close()
+        con.close()
+
+
 
 def add_to_designation(args):
     con=psycopg2.connect(dbname=args.dbname)
@@ -225,7 +270,8 @@ def main():
                "query" : handle_query,
                "leave" : add_leaves,
                "summary":get_leave_summary,
-               "designation":add_to_designation}
+               "designation":add_to_designation,
+               "export": export_leave_summary}
         ops[args.op](args)
     except HRException as e:
         logger.error("Program aborted, %s", e)
