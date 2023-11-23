@@ -3,39 +3,11 @@ import logging
 import psycopg2
 import sys
 import csv
+import requests
 
 class HRException(Exception): pass
 
 logger = False 
-
-
-def create_vcard(lname, fname, designation, email, phone):
-    return f"""BEGIN:VCARD
-VERSION:2.1
-N:{lname};{fname}
-FN:{fname} {lname}
-ORG:Authors, Inc.
-TITLE:{designation}
-TEL;WORK;VOICE:{phone}
-ADR;WORK:;;100 Flat Grape Dr.;Fresno;CA;95555;United States of America
-EMAIL;PREF;INTERNET:{email}
-REV:20150922T195243Z
-END:VCARD"""
-
-
-def init_logger(is_verbose):
-    global logger
-    if is_verbose:
-        level = logging.DEBUG
-    else:
-        level = logging.INFO
-    logger = logging.getLogger("HR")
-    handler = logging.StreamHandler()
-    handler.setLevel(level)
-    handler.setFormatter(logging.Formatter("[%(levelname)s] | %(filename)s:%(lineno)d | %(message)s"))
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(handler)
-
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -55,6 +27,8 @@ def parse_args():
     query_parser = subparsers.add_parser("query", help="Get information for a single employee")
     query_parser.add_argument("--vcard", action="store_true", default=False, help="Generate vcard for employee")
     query_parser.add_argument("id", help="employee id")
+    query_parser.add_argument("-q","--qrcode", action="store_true", default=False, help="Generate qrcode for employee")
+    query_parser.add_argument("-s", "--size", help="Size of qr codes", action='store', type=int, default=500)
 
     # add leave
     parser_leave = subparsers.add_parser("leave", help="Add leave to database")
@@ -81,6 +55,38 @@ def parse_args():
 
     args = parser.parse_args()
     return args 
+
+
+def init_logger(is_verbose):
+    global logger
+    if is_verbose:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+    logger = logging.getLogger("HR")
+    handler = logging.StreamHandler()
+    handler.setLevel(level)
+    handler.setFormatter(logging.Formatter("[%(levelname)s] | %(filename)s:%(lineno)d | %(message)s"))
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+
+
+def create_vcard(lname, fname, designation, email, phone):
+    return f"""BEGIN:VCARD
+VERSION:2.1
+N:{lname};{fname}
+FN:{fname} {lname}
+ORG:Authors, Inc.
+TITLE:{designation}
+TEL;WORK;VOICE:{phone}
+ADR;WORK:;;100 Flat Grape Dr.;Fresno;CA;95555;United States of America
+EMAIL;PREF;INTERNET:{email}
+REV:20150922T195243Z
+END:VCARD"""
+
+def generate_qr_code_content(last_name,first_name,designation,email,phone,size):
+  qr_code = requests.get(f"https://chart.googleapis.com/chart?cht=qr&chs={size}x{size}&chl={last_name,first_name,designation,email,phone}")
+  return qr_code.content
 
 
 def initialize_db(args):
@@ -139,26 +145,42 @@ Phone       : {phone}""")
 
 
 def add_leaves(args):
-    con=psycopg2.connect(dbname=args.dbname)
-    cur=con.cursor()
-    psql = "select id from leaves where employee = %s and date= %s"
-    cur.execute(psql, (args.employee_id, args.date))
-    exists = cur.fetchone()
-    if exists:
-        logger.error(f"Employee already taken leave on {args.date}")
-        exit()
+    con = psycopg2.connect(dbname=args.dbname)
+    cur = con.cursor()
     try:
-        psql="insert into leaves(date,employee,reason) values(%s,%s,%s)"
-        cur.execute(psql,(args.date,args.employee_id,args.reason))
-        con.commit()
-        print("Leave details successfully inserted ")
-    except:
+        leaves_remaining = """
+            SELECT d.total_num_of_leaves - COUNT(l.id) AS leaves_remaining 
+            FROM employees e 
+            LEFT JOIN leaves l ON e.employee_id = l.employee 
+            JOIN designation d ON e.designation_id = d.designation_id 
+            WHERE e.employee_id = %s 
+            GROUP BY e.employee_id, d.total_num_of_leaves
+        """
+        cur.execute(leaves_remaining, (args.employee_id,))
+        leaves_remaining = cur.fetchone()
+
+        if leaves_remaining and leaves_remaining[0] <= 0:
+            print("No leaves remaining. Cannot take more leaves.")
+        else:
+            leave_exists_query = "SELECT id FROM leaves WHERE employee = %s AND date = %s"
+            cur.execute(leave_exists_query, (args.employee_id, args.date))
+            exists = cur.fetchone()
+
+            if exists:
+                print(f"Employee already taken leave on {args.date}")
+            else:
+                insert_leave_query = "INSERT INTO leaves(date, employee, reason) VALUES (%s, %s, %s)"
+                cur.execute(insert_leave_query, (args.date, args.employee_id, args.reason))
+                con.commit()
+                print("Leave details successfully inserted")
+
+    except psycopg2.Error as e:
         con.rollback()
-        print("Leave details not inserted ")
+        print(f"Failed to add leave: {e}")
+
     finally:
         cur.close()
         con.close()
-
 
 def get_leave_summary(args):
     con = psycopg2.connect(dbname=args.dbname)
