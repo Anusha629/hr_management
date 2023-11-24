@@ -24,8 +24,6 @@ Run:
 
    python3 create_vcf.py query 11   - (get a single details for an employee)
 
-   python3 create_vcf.py query 5 --vcard - (get a single vcard for an employee)
-
 
 
 
