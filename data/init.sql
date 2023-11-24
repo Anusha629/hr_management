@@ -7,8 +7,7 @@ BEGIN
           first_name VARCHAR(255) NOT NULL,
           email VARCHAR(255) NOT NULL,
           phone VARCHAR(50),
-          designation_id INTEGER REFERENCES designation(designation_id) ON DELETE CASCADE,
-
+          designation_id INTEGER REFERENCES designation(designation_id) ON DELETE CASCADE
         );
     END IF;
 END $$;
@@ -30,14 +29,11 @@ END $$;
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'designation') THEN
-      CREATE TABLE designation (
-    designation_id SERIAL PRIMARY KEY,
-    designation_name VARCHAR(100) NOT NULL,
-    Percentage_of_employees INTEGER NOT NULL,
-    Total_num_of_leaves INTEGER NOT NULL
-);  
+        CREATE TABLE designation (
+            designation_id SERIAL PRIMARY KEY,
+            designation_name VARCHAR(100) NOT NULL,
+            Percentage_of_employees INTEGER NOT NULL,
+            Total_num_of_leaves INTEGER NOT NULL
+        );
     END IF;
 END $$;
-
-
-
