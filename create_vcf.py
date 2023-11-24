@@ -40,9 +40,8 @@ def parse_args():
     #leave_summary
     parser_summary = subparsers.add_parser("summary", help="Leave summary")
     parser_summary.add_argument("employee_id", type=int, help="Employee id")
-    parser_summary.add_argument("export",help="export to csv file")
     
-    #leave_summary+export
+    #leave_summary export
     parser_export = subparsers.add_parser("export", help="Export leave summary")
     parser_export.add_argument("directory", help="Directory to export leave summary")
 
