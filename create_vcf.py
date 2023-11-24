@@ -42,21 +42,12 @@ def parse_args():
     parser_summary.add_argument("employee_id", type=int, help="Employee id")
     parser_summary.add_argument("export",help="export to csv file")
     
-    #csv_leave_summary
+    #leave_summary+export
     parser_export = subparsers.add_parser("export", help="Export leave summary")
     parser_export.add_argument("directory", help="Directory to export leave summary")
 
-    #add designation
-    parser_designation = subparsers.add_parser("designation", help="Add designation to database")
-    parser_designation.add_argument("name", type=str, help="Name of designation")
-    parser_designation.add_argument("percentage", type=int, help="Employees in designation")
-    parser_designation.add_argument("leaves", type=str, help="Total number of leaves")
-
     parser.add_argument("-n", "--number", help="Number of records to generate", action="store", type=int, default=10)
     parser.add_argument("-v", "--verbose", help="Print detailed logging", action="store_true", default=False)
-    parser.add_argument("-q", "--add_qr", help="Add QR codes", action="store_true", default=False)
-    parser.add_argument("-s", "--qr_size", help="Size of QR code", type=int, default=500)
-    parser.add_argument("-a", "--address", help="Employee address", type=str, default="100 Flat Grape Dr.;Fresno;CA;95555;United States of America")
 
     args = parser.parse_args()
     return args 
@@ -177,7 +168,7 @@ def add_leaves(args):
                     insert_leave_query = "INSERT INTO leaves(date, employee, reason) VALUES (%s, %s, %s)"
                     cur.execute(insert_leave_query, (args.date, args.employee_id, args.reason))
                     con.commit()
-                    print("Leave details successfully inserted")
+                    logger.info("Leave details successfully inserted")
 
     except psycopg2.Error as e:
         con.rollback()
@@ -244,23 +235,6 @@ def export_leave_summary(args):
         con.close()
 
 
-
-def add_to_designation(args):
-    con=psycopg2.connect(dbname=args.dbname)
-    cur=con.cursor()
-    try:
-        psql="insert into designation(designation_name,percentage_of_employees,total_num_of_leaves) values(%s,%s,%s)"
-        cur.execute(psql,(args.name,args.percentage,args.leaves))
-        con.commit()
-        print("Designation details inserted ")
-    except:
-        con.rollback()
-        print("details not inserted ")
-    finally:
-        cur.close()
-        con.close()
-
-
 def main():
     try:
         args = parse_args()
@@ -270,7 +244,6 @@ def main():
                "query" : handle_query,
                "leave" : add_leaves,
                "summary":get_leave_summary,
-               "designation":add_to_designation,
                "export": export_leave_summary}
         ops[args.op](args)
     except HRException as e:
