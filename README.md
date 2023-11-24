@@ -18,13 +18,13 @@ The generated VCards include the following information:
 
 Run:
 
-   python3 create_vcf.py initdb  (initialize database )
+   python3 create_vcf.py initdb  - (initialize database )
 
-   python3 create_vcf.py import names.csv (import a csv file )
+   python3 create_vcf.py import names.csv - (import a csv file )
 
-   python3 create_vcf.py query 11     (get a single details for an employee)
+   python3 create_vcf.py query 11   - (get a single details for an employee)
 
-   python3 create_vcf.py query 5 --vcard  (get a single vcard for an employee)
+   python3 create_vcf.py query 5 --vcard - (get a single vcard for an employee)
 
 
 
