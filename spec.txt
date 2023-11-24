@@ -5,6 +5,7 @@
 1. Objective:
 
 This script generates vCard files from a database containing contact information. Each vCard saved in .vcf format. 
+Can add leaves of an employee,  get summary of single employee, and get summary of all employees.
 
 2. Input:
 
