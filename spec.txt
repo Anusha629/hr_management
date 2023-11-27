@@ -4,7 +4,7 @@
 
 1. Objective:
 
-This script generates vCard files from a database containing contact information. Each vCard saved in .vcf format. 
+This script generates vCard files and qr code from a database containing contact information. Each vCard saved in .vcf format. 
 Can add leaves of an employee,  get summary of single employee, and get summary of all employees.
 
 2. Input:
@@ -24,6 +24,10 @@ Can add leaves of an employee,  get summary of single employee, and get summary 
 
     python3 create_vcf.py query --vcard 1
     # to get in vcard format
+
+- Fetch qr code from database
+
+    python3 create_vcf.py qr 3 -s 300 -qr_dir [dir_path]
 
 - Mark leave of an employee to the database
 
