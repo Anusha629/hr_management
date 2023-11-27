@@ -43,7 +43,7 @@ def parse_args():
     
     #leave_summary export
     parser_export = subparsers.add_parser("export", help="Export leave summary")
-    parser_export.add_argument("directory", help="Directory to export leave summary")
+    parser_export.add_argument("directory", help="Directory_path to export leave summary")
 
     parser.add_argument("-n", "--number", help="Number of records to generate", action="store", type=int, default=10)
     parser.add_argument("-v", "--verbose", help="Print detailed logging", action="store_true", default=False)
@@ -212,14 +212,13 @@ def export_leave_summary(args):
         os.makedirs(directory, exist_ok=True)
 
         with open(os.path.join(directory, 'leave_summary.csv'), 'w', newline='') as csvfile:
-            fieldnames = ['Employee ID', 'First Name', 'Last Name', 'Designation', 'Leaves Taken', 'Leaves Remaining']
+            fieldnames = ['First Name', 'Last Name', 'Designation', 'Leaves Taken', 'Leaves Remaining']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
 
             for item in rows:
                 employee_id, first_name, last_name, designation, leaves_taken, leaves_remaining = item
                 writer.writerow({
-                    'Employee ID': employee_id,
                     'First Name': first_name,
                     'Last Name': last_name,
                     'Designation': designation,
@@ -252,6 +251,3 @@ def main():
 
 if __name__=="__main__":
     main()
-
-
-
