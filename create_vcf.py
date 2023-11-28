@@ -75,8 +75,7 @@ def create_connection(dbname):
     return conn, cursor
 
 def execute_query(query, dbname, args=None, fetch=False):
-    conn = psycopg2.connect(dbname=dbname)
-    cursor = conn.cursor()
+    conn, cursor = create_connection(dbname)
     try:
         if args:
             cursor.execute(query, args)
