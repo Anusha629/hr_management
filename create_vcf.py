@@ -1,21 +1,24 @@
 import argparse
-import logging
-import psycopg2
-import sys
 import csv
-import requests
+import logging
 import os
+import sys
+import configparser
+import psycopg2
+import requests
+
 
 class HRException(Exception): pass
 
 logger = False 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        prog="create_vcf.py", description="Generate employee database")
-    parser.add_argument("--dbname", help="Adding database name", action="store", type=str, default='Employees_db')
-    parser.add_argument("--dbuser", help="Adding user name of database", action="store", type=str, default='anusha')
-    
+    parser = argparse.ArgumentParser(description="HR Management")
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    parser.add_argument("-d","--dbname", help="Adding database name", action="store", type=str, default=config.get('Database', 'dbname'))
+ 
+ 
     # initdb
     subparsers = parser.add_subparsers(dest="op")
     parser_initdb = subparsers.add_parser("initdb", help="Initialize creation of database and table")
@@ -33,10 +36,15 @@ def parse_args():
     parser_fetch_qr = subparsers.add_parser("qr", help="Generate QR code for an employee using employee ID")
     parser_fetch_qr.add_argument("id", help="Employee ID to generate QR code", type=int)
     parser_fetch_qr.add_argument("-s", "--size", help="Size of QR codes", action='store', type=int, default=500)
-    parser_fetch_qr.add_argument("-qr_dir", "--output_directory", help="Output directory for generated QR codes", type=str)
+    parser_fetch_qr.add_argument("-qr_dir", "--output_directory", help="Output directory path for generated QR codes", type=str)
+
+    #fetch all qr & vcard
+    parser_fetch_all = subparsers.add_parser("all", help="Generate QR code and vCard for all employees")
+    parser_fetch_all.add_argument("-s", "--size", help="Size of QR codes", action='store', type=int, default=500)
+    parser_fetch_all.add_argument("-dir", "--output_directory", help="Output directory path for generated QR codes", type=str)
 
     # add leave
-    parser_leave = subparsers.add_parser("leave", help="Add leave to database")
+    parser_leave = subparsers.add_parser("leave", help="Add leave to database. Data format is (YYYY-MM-DD)")
     parser_leave.add_argument("date", type=str, help="Date of leave")
     parser_leave.add_argument("employee_id", type=int, help="Employee id")
     parser_leave.add_argument("reason", type=str, help="Reason of leave")
@@ -93,6 +101,7 @@ def execute_query(query, dbname, args=None, fetch=False):
 
 
 def initialize_db(args):
+    update_config(args.dbname)
     with open("data/init.sql") as f:
         sql = f.read()
         logger.debug(sql)
@@ -100,13 +109,11 @@ def initialize_db(args):
         execute_query(sql, args.dbname)
         logger.info("Initialize Database Successfully")
     except psycopg2.OperationalError as e:
-        raise HRException(f"Database '{args.dbname}' doesn't exist")
-
+        raise HRException(f"Database '{args.dbname}' doesn't exist") 
 
 def truncate_table(args):
     query = "TRUNCATE TABLE employees RESTART IDENTITY CASCADE"
     execute_query(query, args=args)  
-
 
 def import_data_to_db(args):
     truncate_table(args)
@@ -117,7 +124,6 @@ def import_data_to_db(args):
             logger.debug("Inserting %s", email)
             query = "INSERT INTO employees(last_name, first_name, email, phone, designation_id) VALUES (%s, %s, %s, %s, %s)"
             cur.execute(query, (lname, fname, designation, email, phone))
-
 
 def create_vcard(lname, fname, designation, email, phone):
     return f"""BEGIN:VCARD
@@ -137,16 +143,13 @@ def generate_qr_code(args):
     psql = """
         SELECT e.last_name, e.first_name, e.email, e.phone, d.designation_name FROM employees e 
         INNER JOIN designation d ON e.designation_id = d.designation_id  
-        WHERE e.employee_id = %s
-    """
+        WHERE e.employee_id = %s"""
     result = execute_query(psql, args.dbname, (args.id,), fetch=True)
 
     if result:
         first_name, last_name, email, phone, designation = result[0]
         vcard_content = create_vcard(last_name, first_name, designation, email, phone)
-        
         qr_code_content = requests.get(f"https://chart.googleapis.com/chart?cht=qr&chs={args.size}x{args.size}&chl={vcard_content}").content
-        
         os.makedirs(args.output_directory, exist_ok=True)
         
         file_name = f"{args.id}_vcard_qr.png"
@@ -158,6 +161,39 @@ def generate_qr_code(args):
         logger.info(f"QR saved at: {file_path}")
     else:
         logger.error(f"No data found with ID: {args.id}")
+
+def generate_all_details(args):
+    try:
+        conn, cur = create_connection(args.dbname)
+        query = """
+            SELECT e.last_name, e.first_name, e.email, e.phone, d.designation_name, e.employee_id 
+            FROM employees e INNER JOIN designation d ON e.designation_id = d.designation_id"""
+        employees = execute_query(query, args.dbname, fetch=True)
+
+        if employees:
+            output_directory = args.output_directory or "QR_Codes"
+            os.makedirs(output_directory, exist_ok=True)
+
+            for employee in employees:
+                last_name, first_name, email, phone, designation, employee_id = employee
+                vcard_content = create_vcard(last_name, first_name, designation, email, phone)
+                qr_code_content = requests.get(f"https://chart.googleapis.com/chart?cht=qr&chs={args.size}x{args.size}&chl={vcard_content}").content
+                
+                vcard_file_name = f"{employee_id}_vcard.vcf"  
+                vcard_file_path = os.path.join(output_directory, vcard_file_name)
+                
+                qr_file_name = f"{employee_id}_vcard_qr.png" 
+                qr_file_path = os.path.join(output_directory, qr_file_name)
+                
+                with open(vcard_file_path, "w") as vcard_file:
+                    vcard_file.write(vcard_content)
+
+                with open(qr_file_path, "wb") as qr_file:
+                    qr_file.write(qr_code_content)
+        else:
+            logger.warning("No employees found in the database.")
+    except psycopg2.Error as e:
+        logger.error(f"Failed to generate vCards and QR codes: {e}")
 
 
 def handle_query(args):
@@ -274,6 +310,12 @@ def export_leave_summary(args):
         logger.error(f"Failed to export data: {e}")
 
 
+def update_config(dbname):
+  config = configparser.ConfigParser()
+  config.read('config.ini')
+  config.set('Database','dbname',dbname)
+  with open('config.ini','w') as config_file:
+     config.write(config_file)
 
 def main():
     try:
@@ -283,6 +325,7 @@ def main():
                "import" : import_data_to_db,
                "query" : handle_query,
                "qr": generate_qr_code,
+               "all": generate_all_details,
                "leave" : add_leaves,
                "summary":get_leave_summary,
                "export": export_leave_summary
@@ -295,4 +338,6 @@ def main():
 
 if __name__=="__main__":
     main()
+
+
 
