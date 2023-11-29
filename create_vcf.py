@@ -7,7 +7,6 @@ import configparser
 import psycopg2
 import requests
 
-
 class HRException(Exception): pass
 
 logger = False 
