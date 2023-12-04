@@ -5,8 +5,6 @@ import os
 import sys
 import configparser
 import requests
-import sqlalchemy as sa 
-from sqlalchemy.sql import text as sa_txt
 import db
 
 class HRException(Exception): pass
@@ -37,7 +35,10 @@ def parse_args():
     parser_fetch_qr.add_argument("-s", "--size", help="Size of QR codes", action='store', type=int, default=500)
     parser_fetch_qr.add_argument("-d", "--directory", help="Output directory for generated QR codes", type=str) 
 
-   
+    #fetch all qr & vcard
+    parser_fetch_all = subparsers.add_parser("all", help="Generate QR code and vCard for all employees")
+    parser_fetch_all.add_argument("-s", "--size", help="Size of QR codes", action='store', type=int, default=500)
+    parser_fetch_all.add_argument("-dir", "--output_directory", help="Output directory path for generated QR codes", type=str)
 
     # add leave
     parser_leave = subparsers.add_parser("leave", help="Add leave to database. Data format is (YYYY-MM-DD)")
@@ -73,52 +74,46 @@ def init_logger(is_verbose):
     logger.setLevel(logging.DEBUG)
     logger.addHandler(handler)
 
-
 def initialize_db(args):
     db_uri = f"postgresql:///{args.dbname}"
     db.create_all(db_uri)
     session = db.get_session(db_uri)
 
-    d1 = db.Designation(title="Staff Engineer", max_leaves=10)
-    d2 = db.Designation(title="Senior Engineer", max_leaves=20)
-    d3 = db.Designation(title="Junior Engineer", max_leaves=40)
-    d4 = db.Designation(title="Tech Lead", max_leaves=15)
-    d5 = db.Designation(title="Project Manager", max_leaves=15)
+    existing_designations = session.query(db.Designation).first()
+    if not existing_designations:
+        d1 = db.Designation(title="Staff Engineer", max_leaves=10)
+        d2 = db.Designation(title="Senior Engineer", max_leaves=20)
+        d3 = db.Designation(title="Junior Engineer", max_leaves=40)
+        d4 = db.Designation(title="Tech Lead", max_leaves=15)
+        d5 = db.Designation(title="Project Manager", max_leaves=15)
 
-    session.add(d1)
-    session.add(d2)
-    session.add(d3)
-    session.add(d4)
-    session.add(d5)
-    session.commit()
+        session.add(d1)
+        session.add(d2)
+        session.add(d3)
+        session.add(d4)
+        session.add(d5)
+        session.commit()
 
-
-def truncate_table(args):
-    db_uri = f"postgresql:///{args.dbname}"
-    engine = sa.create_engine(db_uri)
-    connection = engine.connect()
-    connection.execute(sa_txt('''TRUNCATE TABLE hrms_employees CASCADE'''))
-    connection.execute(sa_txt('''ALTER SEQUENCE hrms_employees_id_seq RESTART WITH 1'''))
-    connection.close()
-    logger.info('Employees table truncated and ID sequence reset !!')
     
 def import_data_to_db(args):
-    truncate_table(args)
     db_uri = f"postgresql:///{args.dbname}"
     session = db.get_session(db_uri)
 
-    with open(args.employees_file) as f:
-        reader = csv.reader(f)
-        for lname, fname, title, email, phone in reader:
-            designation = session.query(db.Designation).filter(db.Designation.title == title).first()
-            
-            if designation:
-                logger.info("Inserting %s", email)
-                employee = db.Employee(lname=lname, fname=fname, title=designation, email=email, phone=phone)
-                session.add(employee)
-            else:
-                logger.warning(f"No designation found for title: {title}")
-        session.commit()
+    existing_employees = session.query(db.Employee).first()
+    if not existing_employees:
+
+        with open(args.employees_file) as f:
+            reader = csv.reader(f)
+            for lname, fname, title, email, phone in reader:
+                designation = session.query(db.Designation).filter(db.Designation.title == title).first()
+                
+                if designation:
+                    logger.info("Inserting %s", email)
+                    employee = db.Employee(lname=lname, fname=fname, title=designation, email=email, phone=phone)
+                    session.add(employee)
+                else:
+                    logger.warning(f"No designation found for title: {title}")
+            session.commit()
 
 
 def create_vcard(lname, fname, designation, email, phone):
@@ -228,13 +223,37 @@ def generate_qr_code(args):
     else:
         logger.error(f"No employee found with ID: {employee_id}") 
 
-
-def export_leave_summary(db_name, directory):
-    db_uri = f"postgresql:///{db_name}"
+def generate_all_details(args):
+    db_uri = f"postgresql:///{args.dbname}"
     session = db.get_session(db_uri)
 
     employees = session.query(db.Employee).all()
 
+    if employees:
+        output_directory = args.output_directory
+        os.makedirs(output_directory, exist_ok=True)
+
+        for employee in employees:
+            vcard = create_vcard(employee.lname, employee.fname, employee.title.title, employee.email, employee.phone)
+            vcard_file = f"{employee.id}_vcard.vcf"
+            vcard_file_path = os.path.join(output_directory, vcard_file)
+            with open(vcard_file_path, "w") as vcard_file:
+                vcard_file.write(vcard)
+
+            qr_args = argparse.Namespace(
+                id=employee.id,
+                size=args.size,
+                directory=output_directory,
+                dbname=args.dbname)
+            generate_qr_code(qr_args)
+        logger.info("vCard and QR codes saved for all employees")
+    else:
+        logger.error("No employees found in the database.")
+
+def export_leave_summary(db_name, directory):
+    db_uri = f"postgresql:///{db_name}"
+    session = db.get_session(db_uri)
+    employees = session.query(db.Employee).all()
     os.makedirs(directory, exist_ok=True)
     file = os.path.join(directory, 'leave_summary.csv')
 
@@ -257,7 +276,7 @@ def export_leave_summary(db_name, directory):
                 'Leaves Taken': leaves_taken,
                 'Leaves Remaining': leaves_remaining})
 
-    print(f"Leave summary exported to {file}")
+    logger.info(f"Leave summary exported to {file}")
 
 def update_config(dbname):
   config = configparser.ConfigParser()
@@ -270,15 +289,16 @@ def main():
     try:
         args = parse_args()
         init_logger(args.verbose)
+        update_config(args.dbname)
         ops = {
             "initdb": initialize_db,
             "import": import_data_to_db,
             "vcard": generate_vcard,
             "qr": generate_qr_code,
+            "all": generate_all_details,
             "leave": add_leaves,
             "summary": get_leave_summary,
-            "export": export_leave_summary
-        }
+            "export": export_leave_summary}
         if args.op == 'export':
             ops[args.op](args.dbname, args.directory)
         else:
