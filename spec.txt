@@ -13,21 +13,25 @@ Can add leaves of an employee,  get summary of single employee, and get summary 
     
     python3 create_vcf.py initdb
 
+[ customize the database with the following settings - create a database and use python3 create_vcf.py -d demo initdb ]
+
+
 - Import csv file to database:
 
-    python3 create_vcf.py import names.csv
+    python3 create_vcf.py import Employees.csv
 
 - Fetch vcard from database 
 
-    python3 create_vcf.py query 1
+    python3 create_vcf.py vcard 1
     # give an employee_id
-
-    python3 create_vcf.py query --vcard 1
-    # to get in vcard format
 
 - Fetch qr code from database
 
-    python3 create_vcf.py qr 3 -s 300 -qr_dir [dir_path]
+    python3 create_vcf.py qr 3 -s 300 -d [directory]
+
+- Fetch all vcard and qr code from database 
+
+    python3 create_vcf.vcf all -s -dir [dir_path]
 
 - Mark leave of an employee to the database
 
@@ -47,7 +51,7 @@ Can add leaves of an employee,  get summary of single employee, and get summary 
  
 - Export leave summary of employees as csv in a directory
 
-    python3 create_vcf.py export [dir_path]
+    python3 create_vcf.py export [directory]
 
 - To get help:
 
