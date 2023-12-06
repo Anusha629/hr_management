@@ -5,7 +5,9 @@ import os
 import sys
 import configparser
 import requests
-import db
+
+import models
+import web
 
 class HRException(Exception): pass
 
@@ -20,6 +22,8 @@ def parse_args():
     # initdb
     subparsers = parser.add_subparsers(dest="op")
     parser_initdb = subparsers.add_parser("initdb", help="Initialize creation of database and table")
+
+    web_parser = subparsers.add_parser("web", help="Start web server")
     
     # import csv
     import_parser = subparsers.add_parser("import", help="Import data from csv file")
@@ -76,16 +80,16 @@ def init_logger(is_verbose):
 
 def initialize_db(args):
     db_uri = f"postgresql:///{args.dbname}"
-    db.create_all(db_uri)
-    session = db.get_session(db_uri)
+    models.create_all(db_uri)
+    session = models.get_session(db_uri)
 
-    existing_designations = session.query(db.Designation).first()
+    existing_designations = session.query(models.Designation).first()
     if not existing_designations:
-        d1 = db.Designation(title="Staff Engineer", max_leaves=10)
-        d2 = db.Designation(title="Senior Engineer", max_leaves=20)
-        d3 = db.Designation(title="Junior Engineer", max_leaves=40)
-        d4 = db.Designation(title="Tech Lead", max_leaves=15)
-        d5 = db.Designation(title="Project Manager", max_leaves=15)
+        d1 = models.Designation(title="Staff Engineer", max_leaves=10)
+        d2 = models.Designation(title="Senior Engineer", max_leaves=20)
+        d3 = models.Designation(title="Junior Engineer", max_leaves=40)
+        d4 = models.Designation(title="Tech Lead", max_leaves=15)
+        d5 = models.Designation(title="Project Manager", max_leaves=15)
 
         session.add(d1)
         session.add(d2)
@@ -97,19 +101,19 @@ def initialize_db(args):
     
 def import_data_to_db(args):
     db_uri = f"postgresql:///{args.dbname}"
-    session = db.get_session(db_uri)
+    session = models.get_session(db_uri)
 
-    existing_employees = session.query(db.Employee).first()
+    existing_employees = session.query(models.Employee).first()
     if not existing_employees:
 
         with open(args.employees_file) as f:
             reader = csv.reader(f)
             for lname, fname, title, email, phone in reader:
-                designation = session.query(db.Designation).filter(db.Designation.title == title).first()
+                designation = session.query(models.Designation).filter(models.Designation.title == title).first()
                 
                 if designation:
                     logger.info("Inserting %s", email)
-                    employee = db.Employee(lname=lname, fname=fname, title=designation, email=email, phone=phone)
+                    employee = models.Employee(lname=lname, fname=fname, title=designation, email=email, phone=phone)
                     session.add(employee)
                 else:
                     logger.warning(f"No designation found for title: {title}")
@@ -131,10 +135,10 @@ END:VCARD"""
 
 def generate_vcard(args):
     db_uri = f"postgresql:///{args.dbname}"
-    session = db.get_session(db_uri)
+    session = models.get_session(db_uri)
     employee_id = int(args.id)
 
-    employee = session.query(db.Employee).filter(db.Employee.id == employee_id).first()
+    employee = session.query(models.Employee).filter(models.Employee.id == employee_id).first()
 
     if employee:
         vcard = create_vcard(employee.lname,employee.fname,employee.title.title,employee.email,employee.phone)
@@ -148,25 +152,25 @@ def generate_vcard(args):
 
 def add_leaves(args):
     db_uri = f"postgresql:///{args.dbname}"
-    session = db.get_session(db_uri)
+    session = models.get_session(db_uri)
     date = args.date
     employee_id = args.employee_id
     reason = args.reason
 
-    employee = session.query(db.Employee).filter(db.Employee.id == employee_id).first()
+    employee = session.query(models.Employee).filter(models.Employee.id == employee_id).first()
 
     if employee:
         total_leaves = employee.title.max_leaves
-        leaves_taken = session.query(db.Leave).filter(db.Leave.employee_id == employee_id).count()
+        leaves_taken = session.query(models.Leave).filter(models.Leave.employee_id == employee_id).count()
         leaves_remaining = total_leaves - leaves_taken
 
         if leaves_remaining > 0:
-            existing_leave = session.query(db.Leave).filter(db.Leave.date == date, db.Leave.employee_id == employee_id).first()
+            existing_leave = session.query(models.Leave).filter(models.Leave.date == date, models.Leave.employee_id == employee_id).first()
 
             if existing_leave:
                 logger.info("Leave entry for Employee ID %s on %s already exists with reason: %s", employee_id, date, existing_leave.reason)
             else:
-                new_leave = db.Leave(date=date, employee_id=employee_id, reason=reason)
+                new_leave = models.Leave(date=date, employee_id=employee_id, reason=reason)
                 session.add(new_leave)
                 session.commit()
                 logger.info("Leave added for Employee ID %s on %s with reason: %s", employee_id, date, reason)
@@ -178,13 +182,13 @@ def add_leaves(args):
 
 def get_leave_summary(args):
     db_uri = f"postgresql:///{args.dbname}"
-    session = db.get_session(db_uri)
+    session = models.get_session(db_uri)
     employee_id = args.employee_id
 
-    employee = session.query(db.Employee).filter(db.Employee.id == employee_id).first()
+    employee = session.query(models.Employee).filter(models.Employee.id == employee_id).first()
     if employee:
         total_leaves = employee.title.max_leaves
-        leaves_taken = session.query(db.Leave).filter(db.Leave.employee_id == employee_id).count()
+        leaves_taken = session.query(models.Leave).filter(models.Leave.employee_id == employee_id).count()
         leaves_remaining = total_leaves - leaves_taken
 
         print(f"Leave summary for Employee ID {employee_id}:")
@@ -201,10 +205,10 @@ def get_leave_summary(args):
 
 def generate_qr_code(args):
     db_uri = f"postgresql:///{args.dbname}"
-    session = db.get_session(db_uri)
+    session = models.get_session(db_uri)
     employee_id = args.id
 
-    employee = session.query(db.Employee).filter(db.Employee.id == employee_id).first()
+    employee = session.query(models.Employee).filter(models.Employee.id == employee_id).first()
 
     if employee:
         vcard = create_vcard(employee.lname, employee.fname, employee.title.title, employee.email, employee.phone)
@@ -225,9 +229,9 @@ def generate_qr_code(args):
 
 def generate_all_details(args):
     db_uri = f"postgresql:///{args.dbname}"
-    session = db.get_session(db_uri)
+    session = models.get_session(db_uri)
 
-    employees = session.query(db.Employee).all()
+    employees = session.query(models.Employee).all()
 
     if employees:
         output_directory = args.output_directory
@@ -248,11 +252,12 @@ def generate_all_details(args):
             generate_qr_code(qr_args)
         logger.info("vCard and QR codes saved for all employees")
     else:
-        logger.error("No employees found in the database.")
+        logger.error("No employees found in the database.") 
+
 
 def export_leave_summary(db_name, directory):
     db_uri = f"postgresql:///{db_name}"
-    session = db.get_session(db_uri)
+    session = models.get_session(db_uri)
     employees = session.query(db.Employee).all()
     os.makedirs(directory, exist_ok=True)
     file = os.path.join(directory, 'leave_summary.csv')
@@ -264,7 +269,7 @@ def export_leave_summary(db_name, directory):
 
         for employee in employees:
             total_leaves = employee.title.max_leaves
-            leaves_taken = session.query(db.Leave).filter(db.Leave.employee_id == employee.id).count()
+            leaves_taken = session.query(models.Leave).filter(models.Leave.employee_id == employee.id).count()
             leaves_remaining = total_leaves - leaves_taken
 
             writer.writerow({
@@ -285,6 +290,13 @@ def update_config(dbname):
   with open('config.ini','w') as config_file:
      config.write(config_file)
 
+
+def handle_web(args):
+    web.app.config["SQLALCHEMY_DATABASE_URI"] = f"postgresql:///{args.dbname}"
+    web.db.init_app(web.app)
+    web.app.run()
+
+
 def main():
     try:
         args = parse_args()
@@ -293,6 +305,7 @@ def main():
         ops = {
             "initdb": initialize_db,
             "import": import_data_to_db,
+            "web"    : handle_web,
             "vcard": generate_vcard,
             "qr": generate_qr_code,
             "all": generate_all_details,
