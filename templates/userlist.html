@@ -1,13 +1,21 @@
 {% extends 'base.html' %}
 
-{% block content1 %}
+{% block content %}
 
-    <h1> List of employees </h1>
-    <p>
+    <div class="employee-details-container d-flex  justify-content-between">
+      <div class="employees-container">
+      <span class="info"></span>
+      <h4> List of Employees</h4>
       <ol>
         {%for u in users %}
-        <li> <a href="{{url_for('employee_details', empid=u.id)}}">{{u.fname}} </a></li>
+        <li>  <a class="userlink" href="{{url_for('employee_details', empid=u.id)}}">{{u.fname}} </a></li>
         {%endfor%}
       </ol>
-    </p>
+      </div>
+      <div class="user-details-container">
+
+        <p id="userdetails">
+      </div>
+   
+    </div>
 {% endblock %}

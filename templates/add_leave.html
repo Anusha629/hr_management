@@ -1,18 +1,8 @@
 {% extends 'base.html' %}
-{% block content2 %}
+{% block content %}
 
-    <h1>Add Leave Details</h1>
     <p>
-      <form method="post" action="{{url_for('add_leave', empid=employee_id)}}">
-        <label for="leave_date">Leave Date</label>
-        <input type="date" id="leave_date" name="leave_date"><br><br>
-        <label for="leave_reason">Leave Reason</label>
-        <input type="text" id="leave_reason" name="leave_reason"><br><br>
-        <input type="submit" value="Submit">
-        
-    </form>
-    </p>
-    <a href="{{url_for('employee_details', empid=employee_id)}}">Back to employee datails </a>
-    
+      <li>  <a class="userlink" href="{{url_for('add_leave', empid=employee_id)}}">{{u.fname}} </a></li>  
+    </p>    
 {% endblock %}
 

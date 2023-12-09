@@ -1,6 +1,121 @@
-body {
-    background: linear-gradient(to right, #98c4c1, #f3f5f2ef,#b4d7dd); 
-    color: #333; 
-    font-family: Arial, sans-serif; 
+
+/* .about {
+    padding: 20px;
+    background-color: #f8f8f8;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  
+  .about-content {
+    text-align: center;
+  }
+  
+  .about h3 {
+    color: #333;
+    font-size: 24px;
+    margin-bottom: 15px;
+  }
+  
+  .about p {
+    color: #666;
+    font-size: 16px;
+  } */
+
+
+span.info {
+    font-size: 25pt;
+    }
+
+p.info {
+    color: blue;
+    }
+
+
+.userlink{
+    text-decoration: none;
+    color:black;
 }
 
+.userlink:hover{
+    color: #0d2e4e !important;
+ }
+ .userlink:focus{
+    color: #65ca4b !important;
+
+ }
+
+* { text-decoration: none !important;
+    /* margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box; */
+    }
+    
+      body {
+        margin: 0 !important;
+        padding: 0 !important;
+        box-sizing: border-box;
+      }
+      .logo-text {
+        font-size: 40px;
+        color: #113559;
+        font-weight: 800 !important;
+        margin-left: 10px;
+        letter-spacing: 3px;
+      }
+      .logo-text:hover{
+        color: #113559;
+      }
+      .main-container {
+        width: 100%;
+      }
+      .nav-links {
+        font-weight: 400;
+        display: flex;
+        gap: 40px;
+        justify-content: center;
+        margin-right: 90px;
+      }
+      .nav-links a {
+        padding: 4px;
+        border-bottom: 3px solid transparent;
+        transition: 0.5s;
+        color: #113559;
+        font-size: 19px;
+        font-weight: 400;
+      }
+      .nav-links a:hover {
+        border-color: #113559;
+      }
+      .heading-container{
+       display: flex;
+       flex-direction: column;
+       align-items: center;
+       min-height: 100vh;
+       padding-top: 150px;
+       background-image: linear-gradient(to top, #78bcff87, white 55% 45%); 
+
+      }
+ .nav{
+    width:95%;
+    margin-inline:auto;
+ }
+      .heading{
+        /* Welcome To Hamons HRMS
+"To win the market place, you must win the workplace. style */
+        font-size: max(3.5vw,40px);
+        font-weight: 700;
+
+      }
+      .quote{
+        text-align: center;
+        margin-top: 80px;
+      }
+      .employee-details-container{
+        width:60%;
+      }
+
+      .employees-container{
+        margin-left:140px;
+      }
