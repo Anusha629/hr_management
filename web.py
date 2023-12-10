@@ -1,7 +1,7 @@
 import flask 
 
 import models 
-from flask import request, url_for, redirect, jsonify
+from flask import request, url_for, redirect
 from sqlalchemy.sql import func
 
 app = flask.Flask("hrms")
@@ -23,9 +23,10 @@ cache={}
 @app.route("/employees/<int:empid>", methods=["GET", "POST"])
 def employee_details(empid):
     if empid in cache:
-        print (f"returning {empid} from cache")
-        return jsonify(cache[empid])
+        print(f"returning {empid} from cache")
+        return flask.jsonify(cache[empid])
     else:
+        
         query1 = db.select(models.Employee).where(models.Employee.id == empid)
         user = db.session.execute(query1).scalar()
         
@@ -41,7 +42,6 @@ def employee_details(empid):
             new_leave = models.Leave(date=date, employee_id=empid, reason=reason)
             db.session.add(new_leave)
             db.session.commit()
-
         ret = {
             "id": user.id,
             "fname": user.fname,
@@ -51,7 +51,9 @@ def employee_details(empid):
             "phone": user.phone,
             "leave": leave,
             "max_leaves": max_leaves,
-            "remaining_leaves": max_leaves - leave}
+            "remaining_leaves": max_leaves - leave
+            }
+        cache['empid']= ret
         return flask.jsonify(ret) 
 
 @app.route("/add_leave/<int:empid>", methods=["GET", "POST"])
@@ -70,4 +72,3 @@ def add_leave(empid):
 @app.route('/about')
 def about():
     return flask.render_template('about.html')
-
