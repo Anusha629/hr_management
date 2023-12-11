@@ -52,6 +52,7 @@ def employee_details(empid):
             "leave": leave,
             "max_leaves": max_leaves,
             "remaining_leaves": max_leaves - leave
+
             }
         cache['empid']= ret
         return flask.jsonify(ret) 
