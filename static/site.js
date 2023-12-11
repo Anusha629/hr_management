@@ -1,7 +1,6 @@
 function gotEmployees(data) {
   console.log(data);
-  //   $("span.info")[0].innerHTML = "Loaded";
-  $("#userdetails")[0].innerHTML = `
+  $(".user-details-container")[0].innerHTML = `
       <h4> Details for <span class="emp-name">${data.fname} ${data.lname}</span></h4>
       <h5> ${data.title} </h5>
       <table>
@@ -36,6 +35,12 @@ function gotEmployees(data) {
 
       </table>
       <br><br>
+
+      <div class= "navigate-btn">
+<button id="prev-btn" >Prev</button>
+<button id="next-btn" >Next</button>
+</div>
+
       <div>
     <button class="leave-btn" >Add Leave</button>
 <div class="form-container">
@@ -48,8 +53,9 @@ function gotEmployees(data) {
     </form>
     </div>
 </div>
-  `;
 
+
+  `;
   
   $(".leave-btn").click(function (ev) {
     $(".form-container").addClass("visible");
@@ -59,6 +65,7 @@ function gotEmployees(data) {
 
 $(function() {
   $("a.userlink").click(function(ev) {
+  
     $.get(ev.target.href, gotEmployees);
     ev.preventDefault();
   });
@@ -91,5 +98,7 @@ $(document).on("submit", "#leaveForm", function (event) {
         alert("Error submitting form", error);
       }
     });
-  })
+ 
+})
+  
 
