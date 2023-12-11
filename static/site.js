@@ -36,11 +36,6 @@ function gotEmployees(data) {
       </table>
       <br><br>
 
-      <div class= "navigate-btn">
-<button id="prev-btn" >Prev</button>
-<button id="next-btn" >Next</button>
-</div>
-
       <div>
     <button class="leave-btn" >Add Leave</button>
 <div class="form-container">
@@ -65,7 +60,8 @@ function gotEmployees(data) {
 
 $(function() {
   $("a.userlink").click(function(ev) {
-  
+   
+
     $.get(ev.target.href, gotEmployees);
     ev.preventDefault();
   });
@@ -101,4 +97,3 @@ $(document).on("submit", "#leaveForm", function (event) {
  
 })
   
-
