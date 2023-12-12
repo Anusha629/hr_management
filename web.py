@@ -19,25 +19,18 @@ def employees():
     return flask.render_template("userlist.html", users=users)
 
 
-@app.route("/employees/<int:empid>", methods=["GET", "POST"])
+@app.route("/employees/<int:empid>", methods=["GET"])
 def employee_details(empid):
     
-        
-    query1 = db.select(models.Employee).where(models.Employee.id == empid)
-    user = db.session.execute(query1).scalar()
+    employee = db.select(models.Employee).where(models.Employee.id == empid)
+    user = db.session.execute(employee).scalar()
     
     query_for_leaves = db.select(func.count(models.Employee.id)).join(models.Leave, models.Employee.id == models.Leave.employee_id).filter(models.Employee.id == empid)
     leave = db.session.execute(query_for_leaves).scalar()
 
-    query2 = db.select(models.Designation.max_leaves).where(models.Designation.id == models.Employee.title_id)
-    max_leaves = db.session.execute(query2).scalar()
-
-    if request.method == 'POST':
-        date = request.form.get['leavedate']
-        reason = request.form.get['leavereason']
-        new_leave = models.Leave(date=date, employee_id=empid, reason=reason)
-        db.session.add(new_leave)
-        db.session.commit()
+    leaves = db.select(models.Designation.max_leaves).where(models.Designation.id == models.Employee.title_id)
+    max_leaves = db.session.execute(leaves).scalar()
+        
     ret = {
         "id": user.id,
         "fname": user.fname,
@@ -52,7 +45,17 @@ def employee_details(empid):
         }
     return flask.jsonify(ret) 
 
-@app.route("/add_leave/<int:empid>", methods=["GET", "POST"])
+
+@app.errorhandler(500)   
+def page_not_found(error):
+    return flask.render_template('500.html'), 500
+
+@app.errorhandler(404)   
+def page_not_found(error):
+    return flask.render_template('404.html'), 404
+
+
+@app.route("/leaves/<int:empid>", methods=["GET", "POST"])
 def add_leave(empid):
     if request.method == "POST":
         leave_date = request.form.get('leave_date')
@@ -63,7 +66,6 @@ def add_leave(empid):
         db.session.add(new_leave)
         db.session.commit()
         return redirect(url_for("employees"))
-
 
 @app.route('/about')
 def about():
