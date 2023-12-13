@@ -4,22 +4,36 @@ function gotEmployees(data) {
     event.preventDefault();
   };
 
+  const submitButtonClick = (event) => {
+    event.preventDefault();
+    const leaveDate = document.getElementById('leave_date').value;
+    const leaveReason = document.getElementById('leave_reason').value;
+
+  if (!leaveDate || !leaveReason) {
+    alert("Please fill in all fields.");
+    return;
+  }
+  alert("Form submitted successfully!");
+
+};
+       
   const leaveForm = (
     <div>
-      <h5>Add Leave Details</h5>
+      <h4>Add Leave Details</h4>
       <form id="leaveForm" onSubmit={detailForm}>
         <label for="leave_date">Leave Date</label>
-        <input type="date" id="leave_date" name="leave_date" /><br/><br/>
+        <input type="date" id="leave_date" name="leave_date"/><br/><br/>
         <label for="leave_reason">Leave Reason</label>
-        <input type="text" id="leave_reason" name="leave_reason" /><br/><br/>
-        <input className="leave-submit-btn" type="submit" value="Submit" />
+        <input type="text" id="leave_reason" name="leave_reason"/><br/><br/>
+        <input className="leave-submit-btn" type="submit" value="Submit" onClick={submitButtonClick}/>
       </form>
     </div>
   );
 
+  
   const employeeDetails = (
     <div>
-      <h4> Details for <span class="emp-name">{data.fname} {data.lname}</span></h4>
+      <h4> Details for <span className="emp-name">{data.fname} {data.lname}</span></h4>
       <h5> {data.title} </h5>
       <table>
         <tr>
@@ -55,6 +69,7 @@ function gotEmployees(data) {
     </div>
   );
 
+
   const root = ReactDOM.createRoot(document.getElementById('root'));
 
   root.render(
@@ -65,11 +80,9 @@ function gotEmployees(data) {
   );
 }
 
-
 $(function() {
-  $("a.userlink").one("click", function(ev) {
-       $.get(ev.target.href, gotEmployees);
+    $("a.userlink").click(function(ev) {
+    $.get(ev.target.href, gotEmployees);
     ev.preventDefault();
-    $(this).click(function () { return false; });
   });
 });
