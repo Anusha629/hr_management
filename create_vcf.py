@@ -133,7 +133,7 @@ EMAIL;PREF;INTERNET:{email}
 REV:20150922T195243Z
 END:VCARD"""
 
-def generate_vcard(args):
+def create_vcard_from_db(args):
     db_uri = f"postgresql:///{args.dbname}"
     session = models.get_session(db_uri)
     employee_id = int(args.id)
@@ -150,7 +150,7 @@ def generate_vcard(args):
         logger.error("Employee with ID %s not found", employee_id)
 
 
-def add_leaves(args):
+def insert_leaves(args):
     db_uri = f"postgresql:///{args.dbname}"
     session = models.get_session(db_uri)
     date = args.date
@@ -203,64 +203,63 @@ def get_leave_summary(args):
         logger.error("Employee with ID %s not found", employee_id) 
 
 
-def generate_qr_code(args):
-    db_uri = f"postgresql:///{args.dbname}"
+def create_qr_code(args):
+    employee_id = args.id  
+    size = args.size
+    output_directory = getattr(args, 'output_directory', None) or getattr(args, 'directory', None) 
+    dbname = args.dbname
+    db_uri = f"postgresql:///{dbname}"
     session = models.get_session(db_uri)
-    employee_id = args.id
 
     employee = session.query(models.Employee).filter(models.Employee.id == employee_id).first()
 
     if employee:
         vcard = create_vcard(employee.lname, employee.fname, employee.title.title, employee.email, employee.phone)
-        qr_code_content = requests.get(f"https://chart.googleapis.com/chart?cht=qr&chs={args.size}x{args.size}&chl={vcard}").content
-        
-        output_directory = args.directory
-        
-        os.makedirs(output_directory, exist_ok=True)
+        qr_code_content = requests.get(f"https://chart.googleapis.com/chart?cht=qr&chs={size}x{size}&chl={vcard}").content
+
         file_name = f"{employee_id}_vcard_qr.png"
         file_path = os.path.join(output_directory, file_name)
-        
+
         with open(file_path, "wb") as qr_file:
             qr_file.write(qr_code_content)
 
         logger.info(f"QR code saved at: {file_path}")
     else:
-        logger.error(f"No employee found with ID: {employee_id}") 
+        logger.error(f"No employee found with ID: {employee_id}")
 
-def generate_all_details(args):
+
+def get_all_details(args):
     db_uri = f"postgresql:///{args.dbname}"
     session = models.get_session(db_uri)
 
     employees = session.query(models.Employee).all()
 
     if employees:
-        output_directory = args.output_directory
+        output_directory = args.output_directory or args.directory
         os.makedirs(output_directory, exist_ok=True)
 
         for employee in employees:
             vcard = create_vcard(employee.lname, employee.fname, employee.title.title, employee.email, employee.phone)
             vcard_file = f"{employee.id}_vcard.vcf"
             vcard_file_path = os.path.join(output_directory, vcard_file)
+
             with open(vcard_file_path, "w") as vcard_file:
                 vcard_file.write(vcard)
+            qr_args = argparse.Namespace(id=employee.id, size=args.size, output_directory=args.output_directory, dbname=args.dbname)
+            create_qr_code(qr_args)
 
-            qr_args = argparse.Namespace(
-                id=employee.id,
-                size=args.size,
-                directory=output_directory,
-                dbname=args.dbname)
-            generate_qr_code(qr_args)
         logger.info("vCard and QR codes saved for all employees")
     else:
-        logger.error("No employees found in the database.") 
+        logger.error("No employees found in the database.")
 
 
-def export_leave_summary(db_name, directory):
-    db_uri = f"postgresql:///{db_name}"
+
+def export_leave_summary(args):
+    db_uri = f"postgresql:///{args.dbname}"
     session = models.get_session(db_uri)
-    employees = session.query(db.Employee).all()
-    os.makedirs(directory, exist_ok=True)
-    file = os.path.join(directory, 'leave_summary.csv')
+    employees = session.query(models.Employee).all()
+    os.makedirs(args.directory, exist_ok=True)
+    file = os.path.join(args.directory, 'leave_summary.csv')
 
     with open(file, 'w', newline='') as csvfile:
         fieldnames = ['Employee ID', 'First Name', 'Last Name', 'Designation', 'Total Leaves', 'Leaves Taken', 'Leaves Remaining']
@@ -305,21 +304,18 @@ def main():
         ops = {
             "initdb": initialize_db,
             "import": import_data_to_db,
-            "web"    : handle_web,
-            "vcard": generate_vcard,
-            "qr": generate_qr_code,
-            "all": generate_all_details,
-            "leave": add_leaves,
+            "web": handle_web,
+            "vcard": create_vcard_from_db,
+            "qr": create_qr_code,
+            "all": get_all_details,
+            "leave": insert_leaves,
             "summary": get_leave_summary,
             "export": export_leave_summary}
-        if args.op == 'export':
-            ops[args.op](args.dbname, args.directory)
-        else:
-            ops[args.op](args)
+        ops[args.op](args)
+
     except HRException as e:
         logger.error("Program aborted, %s", e)
         sys.exit(-1)
-
 
 if __name__=="__main__":
     main()
