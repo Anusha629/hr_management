@@ -1,10 +1,14 @@
 import flask 
 
 import models 
-from flask import request, url_for, redirect
+from flask import request
 from sqlalchemy.sql import func
 
+from flask_cors import CORS
+
 app = flask.Flask("hrms")
+CORS(app) 
+
 db = models.SQLAlchemy(model_class=models.HRDBBase)
 
 @app.route("/", methods=["GET"])
@@ -12,11 +16,25 @@ def index():
     if flask.request.method == "GET":
         return flask.render_template("index.html")
 
+
 @app.route("/employees")
 def employees():
-    query = db.select(models.Employee).order_by(models.Employee.fname)
-    users = db.session.execute(query).scalars()
-    return flask.render_template("userlist.html", users=users)
+    users= db.select(models.Employee).order_by(models.Employee.fname)
+    users = db.session.execute(users).scalars()
+
+    u_list = []
+    for user in users:
+        data = {
+            "id": user.id,
+            "fname": user.fname,
+            "lname": user.lname,
+            "title": user.title.title,
+            "email": user.email,
+            "phone": user.phone
+        }
+        u_list.append(data)
+
+    return flask.jsonify(u_list)
 
 
 @app.route("/employees/<int:empid>", methods=["GET"])
@@ -40,9 +58,7 @@ def employee_details(empid):
         "phone": user.phone,
         "leave": leave,
         "max_leaves": max_leaves,
-        "remaining_leaves": max_leaves - leave
-
-        }
+        "remaining_leaves": max_leaves - leave}
     return flask.jsonify(ret) 
 
 
@@ -55,18 +71,21 @@ def page_not_found(error):
     return flask.render_template('404.html'), 404
 
 
-@app.route("/leaves/<int:empid>", methods=["GET", "POST"])
+@app.route("/leaves/<int:empid>", methods=["POST"])
 def add_leave(empid):
     if request.method == "POST":
-        leave_date = request.form.get('leave_date')
-        leave_reason = request.form.get('leave_reason')
+        try:
+            leave_date = request.form.get('leave_date')
+            leave_reason = request.form.get('leave_reason')
 
-        new_leave = models.Leave(date=leave_date,reason=leave_reason,employee_id=empid)
+            new_leave = models.Leave(date=leave_date,reason=leave_reason,employee_id=empid)
 
-        db.session.add(new_leave)
-        db.session.commit()
-        return redirect(url_for("employees"))
+            db.session.add(new_leave)
+            db.session.commit()
+        except Exception as e:
+            return flask.jsonify({"error": str(e)}), 500
 
 @app.route('/about')
 def about():
     return flask.render_template('about.html')
+
