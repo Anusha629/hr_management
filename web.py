@@ -83,7 +83,12 @@ def add_leave(empid):
             db.session.add(new_leave)
             db.session.commit()
             return flask.jsonify({"message": "Leave details submitted successfully!"})
+        
         except Exception as e:
             print(f"Error adding leave: {str(e)}")
-            return flask.jsonify({"error": str(e)})
+            return flask.jsonify({"error": str(e)}), 500
         
+
+@app.route('/about')
+def about():
+    return flask.render_template('about.html')
