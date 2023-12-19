@@ -3,7 +3,6 @@ import flask
 import models 
 from flask import request
 from sqlalchemy.sql import func
-
 from flask_cors import CORS
 
 app = flask.Flask("hrms")
@@ -30,8 +29,7 @@ def employees():
             "lname": user.lname,
             "title": user.title.title,
             "email": user.email,
-            "phone": user.phone
-        }
+            "phone": user.phone}
         u_list.append(data)
 
     return flask.jsonify(u_list)
@@ -59,6 +57,7 @@ def employee_details(empid):
         "leave": leave,
         "max_leaves": max_leaves,
         "remaining_leaves": max_leaves - leave}
+    
     return flask.jsonify(ret) 
 
 
@@ -79,13 +78,12 @@ def add_leave(empid):
             leave_reason = request.form.get('leave_reason')
 
             new_leave = models.Leave(date=leave_date,reason=leave_reason,employee_id=empid)
+            print(f"Received leave data: {leave_date}, {leave_reason}")
 
             db.session.add(new_leave)
             db.session.commit()
+            return flask.jsonify({"message": "Leave details submitted successfully!"})
         except Exception as e:
-            return flask.jsonify({"error": str(e)}), 500
-
-@app.route('/about')
-def about():
-    return flask.render_template('about.html')
-
+            print(f"Error adding leave: {str(e)}")
+            return flask.jsonify({"error": str(e)})
+        
