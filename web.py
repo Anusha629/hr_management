@@ -86,9 +86,13 @@ def add_leave(empid):
         
         except Exception as e:
             print(f"Error adding leave: {str(e)}")
-            return flask.jsonify({"error": str(e)}), 500
+            return flask.jsonify({"error": str(e)})
         
 
 @app.route('/about')
 def about():
-    return flask.render_template('about.html')
+    return flask.render_template('about.html') 
+
+if __name__ == '__main__':
+    app.run()
+
