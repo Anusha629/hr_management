@@ -1,8 +1,6 @@
 import flask 
-
 import models 
 from flask import request
-from sqlalchemy.sql import func
 from flask_cors import CORS
 
 app = flask.Flask("hrms")
@@ -37,28 +35,29 @@ def employees():
 
 @app.route("/employees/<int:empid>", methods=["GET"])
 def employee_details(empid):
-    
-    employee = db.select(models.Employee).where(models.Employee.id == empid)
-    user = db.session.execute(employee).scalar()
-    
-    query_for_leaves = db.select(func.count(models.Employee.id)).join(models.Leave, models.Employee.id == models.Leave.employee_id).filter(models.Employee.id == empid)
-    leave = db.session.execute(query_for_leaves).scalar()
 
-    leaves = db.select(models.Designation.max_leaves).where(models.Designation.id == models.Employee.title_id)
-    max_leaves = db.session.execute(leaves).scalar()
-        
+    employee = db.session.query(models.Employee).filter_by(id=empid).first()
+
+    leaves_taken = db.session.query(models.Leave).filter_by(employee_id=empid).count()
+    title_id = employee.title_id
+
+    designation = db.session.query(models.Designation).filter_by(id=title_id).first()
+    max_leaves = designation.max_leaves
+
+    remaining_leaves = max_leaves - leaves_taken 
+
     ret = {
-        "id": user.id,
-        "fname": user.fname,
-        "lname": user.lname,
-        "title": user.title.title,
-        "email": user.email,
-        "phone": user.phone,
-        "leave": leave,
+        "id": employee.id,
+        "fname": employee.fname,
+        "lname": employee.lname,
+        "title": employee.title.title,
+        "email": employee.email,
+        "phone": employee.phone,
+        "leave": leaves_taken,
         "max_leaves": max_leaves,
-        "remaining_leaves": max_leaves - leave}
-    
-    return flask.jsonify(ret) 
+        "remaining_leaves": remaining_leaves }
+
+    return flask.jsonify(ret)
 
 
 @app.errorhandler(500)   
@@ -70,24 +69,36 @@ def page_not_found(error):
     return flask.render_template('404.html'), 404
 
 
+
 @app.route("/leaves/<int:empid>", methods=["POST"])
 def add_leave(empid):
-    if request.method == "POST":
+
+    if request.method == "POST":    
         try:
+            employee = db.session.query(models.Employee).get(empid)
+
+            if not employee:
+                return flask.jsonify({"error": "Employee not found"}), 404
+            
             leave_date = request.form.get('leave_date')
             leave_reason = request.form.get('leave_reason')
 
-            new_leave = models.Leave(date=leave_date,reason=leave_reason,employee_id=empid)
-            print(f"Received leave data: {leave_date}, {leave_reason}")
+            leaves_taken = db.session.query(models.Leave).filter_by(employee_id=empid).count()
+            max_leaves = employee.title.max_leaves
 
-            db.session.add(new_leave)
-            db.session.commit()
-            return flask.jsonify({"message": "Leave details submitted successfully!"})
-        
+            if leaves_taken < max_leaves:
+                new_leave = models.Leave(date=leave_date, reason=leave_reason, employee_id=empid)
+
+                db.session.add(new_leave)
+                db.session.commit()
+
+                return flask.jsonify({"message": "Leave details submitted successfully!"}), 200 
+            else:
+                return flask.jsonify({"error": "Leaves exceed the maximum allowed"}), 403 
+            
         except Exception as e:
-            print(f"Error adding leave: {str(e)}")
-            return flask.jsonify({"error": str(e)})
-        
+            return flask.jsonify({"error": "Leave already exists for this date"}), 400
+
 
 @app.route('/about')
 def about():
