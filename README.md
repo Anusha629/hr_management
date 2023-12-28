@@ -1,31 +1,24 @@
 # HR Management
 
-This Python script converts data from a database into VCards. Each row in database corresponds to an individual's contact information, and the script creates a VCard for each person.
+This HR Management System is a Flask-based web application designed to manage employee information and leave records.
 
-    
-   Data base contains with the following columns: Last Name, First Name, Designation, Email, and Phone
+## Features
+
+Employee Management
+
+- Retrieve Employee Details: Obtain employee information as json data including name, title, email, and phone.
+
+Leave Management
+
+- Leave Entries: Add and manage leave entries for employees.
+- Leave Tracking: Track maximum allowed leaves and remaining leaves for each employee.
+
+Web Interface
+
+- User-Friendly Access: Easily accessible web-based functionalities.
 
 ## Usage
 
-The generated VCards include the following information:
+    python3 create_vcf.py web
 
-    Full Name
-    Organization and Title
-    Work Phone
-    Work Address
-    Email Address
-
-
-Run:
-
-   python3 create_vcf.py initdb  - (initialize database )
-
-   python3 create_vcf.py import names.csv - (import a csv file )
-
-   python3 create_vcf.py query 11   - (get a single details for an employee)
-
-
-
-
-
-
+Access through http://localhost:5000 on web browser.
