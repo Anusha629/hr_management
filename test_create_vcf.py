@@ -1,6 +1,4 @@
 from create_vcf import create_vcard
-import os
-
 
 def test_create_vcard():
     lname = "Mason"
@@ -23,17 +21,6 @@ def test_create_vcard():
     REV:20150922T195243Z
     END:VCARD
     """
-
     assert not content == expected_content
 
-
-output_dir = "vcard"
-
-def test_clear_output_dir():
-    files_in_dir = os.listdir(output_dir)
-    if files_in_dir:
-        for file_name in files_in_dir:
-            os.remove(os.path.join(output_dir, file_name))
-    
-    assert not os.listdir(output_dir)
 
