@@ -18,6 +18,7 @@ def parse_args():
     config = configparser.ConfigParser()
     config.read('config.ini')
     parser.add_argument("-d","--dbname", help="Adding database name", action="store", type=str, default=config.get('Database', 'dbname'))
+    parser.add_argument("-v", "--verbose", help="Print detailed logging", action="store_true", default=False)
  
     # initdb
     subparsers = parser.add_subparsers(dest="op")
@@ -57,9 +58,6 @@ def parse_args():
     #leave_summary export
     parser_export = subparsers.add_parser("export", help="Export leave summary")
     parser_export.add_argument("directory", help="Directory name to export leave summary")
-
-    parser.add_argument("-n", "--number", help="Number of records to generate", action="store", type=int, default=10)
-    parser.add_argument("-v", "--verbose", help="Print detailed logging", action="store_true", default=False)
 
     args = parser.parse_args()
     return args 
@@ -220,6 +218,9 @@ def create_qr_code(args):
         file_name = f"{employee_id}_vcard_qr.png"
         file_path = os.path.join(output_directory, file_name)
 
+        if not os.path.exists(output_directory):
+            os.makedirs(output_directory)
+
         with open(file_path, "wb") as qr_file:
             qr_file.write(qr_code_content)
 
@@ -242,6 +243,9 @@ def get_all_details(args):
             vcard = create_vcard(employee.lname, employee.fname, employee.title.title, employee.email, employee.phone)
             vcard_file = f"{employee.id}_vcard.vcf"
             vcard_file_path = os.path.join(output_directory, vcard_file)
+
+            if not os.path.exists(output_directory):
+                os.makedirs(output_directory)
 
             with open(vcard_file_path, "w") as vcard_file:
                 vcard_file.write(vcard)
@@ -287,7 +291,7 @@ def update_config(dbname):
   config.read('config.ini')
   config.set('Database','dbname',dbname)
   with open('config.ini','w') as config_file:
-     config.write(config_file)
+     config.write(config_file) 
 
 
 def handle_web(args):
